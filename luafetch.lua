@@ -5,7 +5,7 @@ local config = {
 	'title',
 	'sep',
 	'OS',
-	'uptime',
+--	'uptime',
 	'shell',
 	'pkgs',
 	'term',
@@ -30,39 +30,74 @@ function getinfo(cmd)
 end
 
 function getmemory()
-	local meminfo = io.open('/proc/meminfo')
 	local mem = 'UNKOWN'
 
-	if meminfo then
-		local totalmem = getinfo("awk '/MemTotal/ {print $2}' /proc/meminfo", true)
-		if totalmem/1000000 < 0.85 then
-			if totalmem/1000 < 0.85 then
-				totalmem = string.format('%.2f KB', totalmem/1000)
+	if (osName == 'FreeBSD') then
+		local dmesg = io.open('/var/run/dmesg.boot')
+
+		if dmesg then
+			local totalmem = getinfo("awk '/real memory/ {print $4}' /var/run/dmesg.boot")
+			if totalmem/1000000 < 0.85 then
+				if totalmem/1000 < 0.85 then
+					totalmem = string.format('%.2f KB', totalmem/1000)
+				else
+					totalmem = string.format('%.2f MB', totalmem/1000)
+				end
 			else
-				totalmem = string.format('%.2f MB', totalmem/1000)
+				totalmem = string.format('%.2f GB', totalmem/1000000)
 			end
-		else
-			totalmem = string.format('%.2f GB', totalmem/1000000)
-		end
 
-		local availmem = getinfo("awk '/MemAvailable/ {print $2}' /proc/meminfo", true)
-		if availmem/1000000 < 0.85 then
-			if availmem/1000 < 0.85 then
-				availmem = string.format('%.2f KB', availmem/1000)
+			local availmem = getinfo("awk '/avail memory/ {print $4}' /var/run/dmesg.boot")
+			if availmem/1000000 < 0.85 then
+				if availmem/1000 < 0.85 then
+					availmem = string.format('%.2f KB', availmem/1000)
+				else
+					availmem = string.format('%.2f MB', availmem/1000)
+				end
 			else
-				availmem = string.format('%.2f MB', availmem/1000)
+				availmem = string.format('%.2f GB', availmem/1000000)
 			end
-		else
-			availmem = string.format('%.2f GB', availmem/1000000)
+
+			mem = availmem .. ' / ' .. totalmem
+
+			dmesg:close()
 		end
+	end
+	if (osName == 'Linux') then
+		local meminfo = io.open('/proc/meminfo')
 
-		mem = availmem .. ' / ' .. totalmem
+		if meminfo then
+			local totalmem = getinfo("awk '/MemTotal/ {print $2}' /proc/meminfo")
+			if totalmem/1000000 < 0.85 then
+				if totalmem/1000 < 0.85 then
+					totalmem = string.format('%.2f KB', totalmem/1000)
+				else
+					totalmem = string.format('%.2f MB', totalmem/1000)
+				end
+			else
+				totalmem = string.format('%.2f GB', totalmem/1000000)
+			end
 
-		meminfo:close()
+			local availmem = getinfo("awk '/MemAvailable/ {print $2}' /proc/meminfo")
+			if availmem/1000000 < 0.85 then
+				if availmem/1000 < 0.85 then
+					availmem = string.format('%.2f KB', availmem/1000)
+				else
+					availmem = string.format('%.2f MB', availmem/1000)
+				end
+			else
+				availmem = string.format('%.2f GB', availmem/1000000)
+			end
+
+			mem = availmem .. ' / ' .. totalmem
+
+			meminfo:close()
+		end
 	end
 	return mem
 end
 
+--[[
 function getuptime()
 	local uptimeinfo = io.open('/proc/uptime')
 	local uptime = 'UNKOWN'
@@ -77,8 +112,15 @@ function getuptime()
 		end
 		uptimeinfo:close()
 	else
-		local boot = math.tointeger(getinfo('date -d"$(uptime -s)" +%s', true))
-		local time = math.tointeger(getinfo('date +%s', true))
+		local boot, time
+		if (osName == "FreeBSD") then
+			boot = math.tointeger(getinfo("sysctl -n kern.boottime | awk -F'[ ,=]+' '{print $4}'"))
+			time = math.tointeger(getinfo('date +%s'))
+		end
+		if (osName == "Linux") then
+			boot = math.tointeger(getinfo('date -d"$(uptime -s)" +%s'))
+			time = math.tointeger(getinfo('date +%s'))
+		end
 
 		local total = (time - boot)
 		if (math.floor(total/86400)) ~= 0 then
@@ -90,11 +132,11 @@ function getuptime()
 
 	return uptime
 end
+]]
 
 function getpackages()
 	local pkgs = ''
 	local tmpPath = os.tmpname()
-	local osName = string.match(OS, '(%S*)%s+')
 
 	if (osName == 'Linux') or (osName == 'FreeBSD') then
 		local pkgMList = {
@@ -111,7 +153,8 @@ function getpackages()
 				local tmp = io.popen(p[1] .. ' ' .. p[3])
 
 				local num = tmp:read('*a')
-				pkgs = string.gsub(pkgs .. '(' .. p[1] .. ') ' .. num .. ' ', '[\n+]', '')
+				num = string.match(num, '%s?(%S+)')
+				pkgs = pkgs .. '(' .. p[1] .. ') ' .. num .. ' '
 
 				tmp:close()
 			end
@@ -126,16 +169,23 @@ end
 user = getinfo('echo $USER')
 shell = getinfo('echo $SHELL')
 term = getinfo('echo $TERM')
-
-OS = getinfo('uname -s -m')
 hostname = getinfo('hostname')
 
-mem = getmemory()
-uptime = getuptime()
-pkgs = getpackages()
+OS = getinfo('uname -s -m')
 
-cpu = getinfo("awk -F':' '/model name/ {print $2; exit}' /proc/cpuinfo | xargs")
-gpu = getinfo("lspci | grep -iE ' Display | 3D | VGA ' | awk -F'[][]' '{print $(NF-1)}'")
+osName = string.match(OS, '(%S+)%s+')
+if (osName == "FreeBSD") then
+	cpu = getinfo("sysctl -n hw.model")
+	gpu = getinfo("pciconf -lv | grep -B2 display | awk -F\"'\" '/device/ {print $2}'")
+end
+if (osName == "Linux") then
+	cpu = getinfo("awk -F':' '/model name/ {print $2; exit}' /proc/cpuinfo | xargs")
+	gpu = getinfo("lspci | grep -iE ' Display | 3D | VGA ' | awk -F'[][]' '{print $(NF-1)}'")
+end
+
+mem = getmemory()
+--uptime = getuptime(osName)
+pkgs = getpackages()
 
 title = user .. '@' .. hostname
 sep = string.rep('-', string.len(user)) .. '-' .. string.rep('-', string.len(hostname))
