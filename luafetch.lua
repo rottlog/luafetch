@@ -29,7 +29,6 @@ end
 
 function getmemory()
 	local totalmem = getinfo("awk '/MemTotal/ {print $2}' /proc/meminfo", true)
-	local availmem = getinfo("awk '/MemAvailable/ {print $2}' /proc/meminfo", true)
 	if totalmem/1000000 < 0.85 then
 		if totalmem/1000 < 0.85 then
 			totalmem = string.format('%.2f KB', totalmem/1000)
@@ -39,6 +38,8 @@ function getmemory()
 	else
 		totalmem = string.format('%.2f GB', totalmem/1000000)
 	end
+	
+	local availmem = getinfo("awk '/MemAvailable/ {print $2}' /proc/meminfo", true)
 	if availmem/1000000 < 0.85 then
 		if availmem/1000 < 0.85 then
 			availmem = string.format('%.2f KB', availmem/1000)
@@ -118,17 +119,15 @@ term = os.getenv('TERM') or 'UNKOWN'
 OS = getinfo('uname -s -m', true) or 'UNKOWN'
 hostname = getinfo('hostname', true) or 'UNKOWN'
 
-local cpuinfo = '/proc/cpuinfo'
-cpu = getinfo("awk -F':' '/model name/ {print $2; exit}' " .. cpuinfo .. " | xargs",
+mem = getmemory() or 'UNKOWN'
+uptime = getuptime() or 'UNKOWN'
+pkgs = getpackages() or 'UNKOWN'
+
+cpu = getinfo("awk -F':' '/model name/ {print $2; exit}' /proc/cpuinfo | xargs",
 				true) or 'UNKOWN'
 
 gpu = getinfo("lspci | grep -iE ' Display | 3D | VGA ' | awk -F'[][]' '{print $(NF-1)}'", 
 				true) or 'UNKOWN'
-
-mem = getmemory() or 'UNKOWN'
-
-uptime = getuptime() or 'UNKOWN'
-pkgs = getpackages() or 'UNKOWN'
 
 title = user .. '@' .. hostname
 sep = string.rep('-', string.len(user)) .. '-' .. string.rep('-', string.len(hostname))
