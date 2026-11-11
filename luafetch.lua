@@ -5,7 +5,7 @@ local config = {
 	'title',
 	'sep',
 	'OS',
---	'uptime',
+	'uptime',
 	'shell',
 	'pkgs',
 	'term',
@@ -37,25 +37,25 @@ function getmemory()
 
 		if dmesg then
 			local totalmem = getinfo("awk '/real memory/ {print $4}' /var/run/dmesg.boot")
-			if totalmem/1000000 < 0.85 then
-				if totalmem/1000 < 0.85 then
+			if totalmem/1000000000 < 0.85 then
+				if totalmem/1000000 < 0.85 then
 					totalmem = string.format('%.2f KB', totalmem/1000)
 				else
-					totalmem = string.format('%.2f MB', totalmem/1000)
+					totalmem = string.format('%.2f MB', totalmem/1000000)
 				end
 			else
-				totalmem = string.format('%.2f GB', totalmem/1000000)
+				totalmem = string.format('%.2f GB', totalmem/1000000000)
 			end
 
 			local availmem = getinfo("awk '/avail memory/ {print $4}' /var/run/dmesg.boot")
-			if availmem/1000000 < 0.85 then
-				if availmem/1000 < 0.85 then
+			if availmem/1000000000 < 0.85 then
+				if availmem/1000000 < 0.85 then
 					availmem = string.format('%.2f KB', availmem/1000)
 				else
-					availmem = string.format('%.2f MB', availmem/1000)
+					availmem = string.format('%.2f MB', availmem/1000000)
 				end
 			else
-				availmem = string.format('%.2f GB', availmem/1000000)
+				availmem = string.format('%.2f GB', availmem/1000000000)
 			end
 
 			mem = availmem .. ' / ' .. totalmem
@@ -70,7 +70,7 @@ function getmemory()
 			local totalmem = getinfo("awk '/MemTotal/ {print $2}' /proc/meminfo")
 			if totalmem/1000000 < 0.85 then
 				if totalmem/1000 < 0.85 then
-					totalmem = string.format('%.2f KB', totalmem/1000)
+					totalmem = string.format('%.2f KB', totalmem)
 				else
 					totalmem = string.format('%.2f MB', totalmem/1000)
 				end
@@ -81,7 +81,7 @@ function getmemory()
 			local availmem = getinfo("awk '/MemAvailable/ {print $2}' /proc/meminfo")
 			if availmem/1000000 < 0.85 then
 				if availmem/1000 < 0.85 then
-					availmem = string.format('%.2f KB', availmem/1000)
+					availmem = string.format('%.2f KB', availmem)
 				else
 					availmem = string.format('%.2f MB', availmem/1000)
 				end
@@ -97,7 +97,6 @@ function getmemory()
 	return mem
 end
 
---[[
 function getuptime()
 	local uptimeinfo = io.open('/proc/uptime')
 	local uptime = 'UNKOWN'
@@ -132,7 +131,6 @@ function getuptime()
 
 	return uptime
 end
-]]
 
 function getpackages()
 	local pkgs = ''
@@ -184,7 +182,7 @@ if (osName == "Linux") then
 end
 
 mem = getmemory()
---uptime = getuptime(osName)
+uptime = getuptime()
 pkgs = getpackages()
 
 title = user .. '@' .. hostname
