@@ -113,7 +113,7 @@ function getuptime()
 	else
 		local boot, time
 		if (osName == "FreeBSD") then
-			boot = math.tointeger(getinfo("sysctl -n kern.boottime | awk -F'[ ,=]+' '{print $4}'"))
+			boot = math.tointeger(getinfo("sysctl -n kern.boottime | awk -F'[ ,=]+' '{print $3}'"))
 			time = math.tointeger(getinfo('date +%s'))
 		end
 		if (osName == "Linux") then
