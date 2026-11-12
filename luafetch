@@ -1,3 +1,0 @@
-#!/bin/sh
-
-if [ -x /usr/bin/lua ]; then lua ./luafetch.lua; else lua54 ./luafetch.lua; fi
