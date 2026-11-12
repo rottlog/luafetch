@@ -14,15 +14,68 @@ local config = {
 	'mem'
 }
 
+local custom_ascii_path = ''
+
+freebsd_ascii = {
+   "           ,        ,         ",
+   "          /(        )`        ",
+   "          \\ \\___   / |      ",
+   "          /- _  `-/  '        ",
+   "         (/\\/ \\ \\   /\\    ",
+   "         / /   | `    \\      ",
+   "         O O   ) /    |       ",
+   "         `-^--'`<     '       ",
+   "        (_.)  _  )   /        ",
+   "         `.___/`    /         ",
+   "           `-----' /          ",
+   "<----.     __ / __   \\       ",
+   "<----|====O)))==) \\) /====",
+   "<----'    `--' `.__,' \\   ",
+   "             |        |    ",
+   "              \\       /   ",
+   "         ______( (_  / \\______",
+   "      ,'  ,-----'   |        \\",
+   "      `--{__________)        \\/"
+}
+-- by Felix Lee
+
+linux_ascii = {
+   "    .--.     ",
+   "   |o_o |    ",
+   "   |:_/ |    ",
+   "  //   \\ \\ ",
+   " (|     | )  ",
+   "/'\\_   _/`\\",
+   "\\___)=(___/ "  
+}
+-- by Przemek Borys
+
+local longest_line = 0
+custom_ascii = {}
+if custom_ascii_path ~= '' then
+	local custom_ascii_file = io.open(custom_ascii_path)
+
+	if custom_ascii_file then
+		for line in custom_ascii_file:lines() do
+			if string.len(line) > 0  then
+				if string.len(line) > longest_line then
+					longest_line = string.len(line)
+				end
+				table.insert(custom_ascii, line)
+			end
+		end
+
+		custom_ascii_file:close()
+	end
+end
+
 function getinfo(cmd)
 	local tmp = io.popen(cmd)
 
 	local info = tmp:read('*a')
 	info = string.gsub(info, '[\n+]', '')
 
-	if string.len(info) <= 0 then 
-		info = 'UNKOWN' 
-	end
+	if info == '' then info = 'UNKOWN' end
 
 	tmp:close()
 
@@ -158,9 +211,7 @@ function getpackages()
 			end
 		end
 	end
-	if string.len(pkgs) <= 0 then 
-		pkgs = 'UNKOWN' 
-	end
+	if pkgs == '' then pkgs = 'UNKOWN' end
 	return pkgs
 end
 
@@ -175,10 +226,14 @@ osName = string.match(OS, '(%S+)%s+')
 if (osName == "FreeBSD") then
 	cpu = getinfo("sysctl -n hw.model")
 	gpu = getinfo("pciconf -lv | grep -B2 display | awk -F\"'\" '/device/ {print $2}'")
+
+	default_ascii = freebsd_ascii
 end
 if (osName == "Linux") then
 	cpu = getinfo("awk -F':' '/model name/ {print $2; exit}' /proc/cpuinfo | xargs")
 	gpu = getinfo("lspci | grep -iE ' Display | 3D | VGA ' | awk -F'[][]' '{print $(NF-1)}'")
+
+	default_ascii = linux_ascii
 end
 
 mem = getmemory()
@@ -188,14 +243,36 @@ pkgs = getpackages()
 title = user .. '@' .. hostname
 sep = string.rep('-', string.len(user)) .. '-' .. string.rep('-', string.len(hostname))
 
-for _, c in pairs(config) do
-	if (c ~= 'title') and (c ~= 'sep') then
-		if _G[c] ~= 'UNKOWN' then
-			print('\x1b[1m' .. string.upper(c) .. ': ' .. '\x1b[0m' .. _G[c])
+local ascii
+if custom_ascii_path ~= '' then ascii = custom_ascii
+else ascii = default_ascii end
+
+for i, c in pairs(config) do
+	space = ''
+
+	if i <= #ascii then
+		if custom_ascii_path ~= '' then
+			io.write(ascii[i])
 		else
-			print('\x1b[1m' .. string.upper(c) .. ': ' .. '\x1b[31m' .. _G[c] .. '\x1b[0m' .. '\x1b[0m')
+			io.write(ascii[i] .. '\t')
+		end
+		space = string.rep(' ', (longest_line - string.len(ascii[i])) + 1)
+	else io.write('\t\t') end
+
+	if (c ~= 'title') and (c ~= 'sep') then
+		if _G[c] ~= 'UNKOWN' then			
+			output = '\x1b[1m' .. string.upper(c) .. ': ' .. '\x1b[0m' .. _G[c]
+		else
+			output = '\x1b[1m' .. string.upper(c) .. ': ' .. '\x1b[31m' .. _G[c] .. '\x1b[0m' .. '\x1b[0m'
 		end
 	else
-		print('\x1b[1m' .. _G[c] .. '\x1b[0m')
+		output = '\x1b[1m' .. _G[c] .. '\x1b[0m'
+	end
+	print(space .. output)
+
+	if i == #config and i < #ascii then
+		for a=i+1, #ascii do
+			print(ascii[a])
+		end
 	end
 end
