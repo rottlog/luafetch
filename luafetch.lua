@@ -187,7 +187,7 @@ end
 
 function getpackages()
 	local pkgs = ''
-	local tmpPath = os.tmpname()
+	local tmpPath = '/tmp/luafetch_tmp'
 
 	if (osName == 'Linux') or (osName == 'FreeBSD') then
 		local pkgMList = {
@@ -215,64 +215,71 @@ function getpackages()
 	return pkgs
 end
 
-user = getinfo('echo $USER')
-shell = getinfo('echo $SHELL')
-term = getinfo('echo $TERM')
-hostname = getinfo('hostname')
+function getosinfo()
+	OS = getinfo('uname -s -m')
+	osName = string.match(OS, '(%S+)%s+')
+	
+	if (osName == "FreeBSD") then
+		cpu = getinfo("sysctl -n hw.model")
+		gpu = getinfo("pciconf -lv | grep -B2 display | awk -F\"'\" '/device/ {print $2}'")
 
-OS = getinfo('uname -s -m')
-
-osName = string.match(OS, '(%S+)%s+')
-if (osName == "FreeBSD") then
-	cpu = getinfo("sysctl -n hw.model")
-	gpu = getinfo("pciconf -lv | grep -B2 display | awk -F\"'\" '/device/ {print $2}'")
-
-	default_ascii = freebsd_ascii
-end
-if (osName == "Linux") then
-	cpu = getinfo("awk -F':' '/model name/ {print $2; exit}' /proc/cpuinfo | xargs")
-	gpu = getinfo("lspci | grep -iE ' Display | 3D | VGA ' | awk -F'[][]' '{print $(NF-1)}'")
-
-	default_ascii = linux_ascii
-end
-
-mem = getmemory()
-uptime = getuptime()
-pkgs = getpackages()
-
-title = user .. '@' .. hostname
-sep = string.rep('-', string.len(user)) .. '-' .. string.rep('-', string.len(hostname))
-
-local ascii
-if custom_ascii_path ~= '' then ascii = custom_ascii
-else ascii = default_ascii end
-
-for i, c in pairs(config) do
-	space = ''
-
-	if i <= #ascii then
-		if custom_ascii_path ~= '' then
-			io.write(ascii[i])
-		else
-			io.write(ascii[i] .. '\t')
-		end
-		space = string.rep(' ', (longest_line - string.len(ascii[i])) + 1)
-	else io.write('\t\t') end
-
-	if (c ~= 'title') and (c ~= 'sep') then
-		if _G[c] ~= 'UNKOWN' then			
-			output = '\x1b[1m' .. string.upper(c) .. ': ' .. '\x1b[0m' .. _G[c]
-		else
-			output = '\x1b[1m' .. string.upper(c) .. ': ' .. '\x1b[31m' .. _G[c] .. '\x1b[0m' .. '\x1b[0m'
-		end
-	else
-		output = '\x1b[1m' .. _G[c] .. '\x1b[0m'
+		default_ascii = freebsd_ascii
 	end
-	print(space .. output)
+	if (osName == "Linux") then
+		cpu = getinfo("awk -F':' '/model name/ {print $2; exit}' /proc/cpuinfo | xargs")
+		gpu = getinfo("lspci | grep -iE ' Display | 3D | VGA ' | awk -F'[][]' '{print $(NF-1)}'")
 
-	if i == #config and i < #ascii then
-		for a=i+1, #ascii do
-			print(ascii[a])
+		default_ascii = linux_ascii
+	end
+end
+
+function fetch()
+	title = user .. '@' .. hostname
+	sep = string.rep('-', string.len(user)) .. '-' .. string.rep('-', string.len(hostname))
+
+	local ascii
+	if custom_ascii_path ~= '' then ascii = custom_ascii
+	else ascii = default_ascii end
+
+	for i, c in pairs(config) do
+		space = ''
+
+		if i <= #ascii then
+			if custom_ascii_path ~= '' then
+				io.write(ascii[i])
+			else
+				io.write(ascii[i] .. '\t')
+			end
+			space = string.rep(' ', (longest_line - string.len(ascii[i])) + 1)
+		else io.write('\t\t') end
+
+		if (c ~= 'title') and (c ~= 'sep') then
+			if _G[c] ~= 'UNKOWN' then			
+				output = '\x1b[1m' .. string.upper(c) .. ': ' .. '\x1b[0m' .. _G[c]
+			else
+				output = '\x1b[1m' .. string.upper(c) .. ': ' .. '\x1b[31m' .. _G[c] .. '\x1b[0m' .. '\x1b[0m'
+			end
+		else
+			output = '\x1b[1m' .. _G[c] .. '\x1b[0m'
+		end
+		print(space .. output)
+
+		if i == #config and i < #ascii then
+			for a=i+1, #ascii do
+				print(ascii[a])
+			end
 		end
 	end
 end
+
+function main()
+	user, shell, term, hostname = getinfo('echo $USER'), getinfo('echo $SHELL'), getinfo('echo $TERM'), getinfo('echo $(hostname)')
+
+	getosinfo()
+
+	mem, uptime, pkgs = getmemory(), getuptime(), getpackages()
+
+	fetch()
+end
+
+main()
